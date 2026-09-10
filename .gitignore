@@ -1,6 +1,7 @@
 node_modules/
 dist/
 build/
+backend/public/
 
 # runtime data (SQLite DB + uploaded photos) — should persist on disk, not in git
 backend/data/*.db

@@ -1,0 +1,14 @@
+services:
+  fitness-app:
+    build: .
+    ports:
+      - '3001:3001'
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDE_VISION_MODEL=${CLAUDE_VISION_MODEL:-claude-sonnet-5}
+    volumes:
+      - fitness-data:/app/backend/data
+    restart: unless-stopped
+
+volumes:
+  fitness-data:

@@ -91,6 +91,78 @@ npm run build
 npm run preview   # serves the built app, still talking to the backend on :3001
 ```
 
+## Deploying it (get a real URL, not just your home Wi-Fi)
+
+Running the dev servers on a laptop only gets you a URL reachable on your home network, and
+only while that laptop is on. To open the app from your phone anywhere (cell data included),
+deploy it somewhere it stays running.
+
+The repo includes a `Dockerfile` that builds the React frontend and bundles it into the same
+Express server as the API, so the whole app is **one container, one port, one URL** — no CORS
+or separate-service wiring to deal with. That one Dockerfile works the same way whether you
+self-host it or hand it to a platform that builds from a Dockerfile.
+
+Whichever route you pick, you need two things configured wherever it runs:
+
+1. **A persistent volume mounted at `/app/backend/data`** — this is where the SQLite database
+   and uploaded meal photos live. Without a persistent volume, your data resets every time the
+   container restarts or redeploys.
+2. **The `ANTHROPIC_API_KEY` environment variable** — set it in the platform's dashboard (or
+   your `.env` for self-hosting), not baked into the image.
+
+### Option A: self-host with Docker (your own VPS / home server / NAS)
+
+```bash
+cp .env.example .env        # fill in ANTHROPIC_API_KEY
+docker compose up -d --build
+```
+
+This builds the image, starts it on port 3001 with a named volume (`fitness-data`) for
+`/app/backend/data`, and restarts it automatically if the host reboots. Put a reverse proxy
+(Caddy, nginx, or your VPS provider's load balancer) in front of it for HTTPS and a real
+domain, then that URL works from your phone over cell data too, not just local Wi-Fi.
+
+To update after pulling new code: `docker compose up -d --build` again — the volume (and your
+data) survives.
+
+### Option B: Railway
+
+1. In the Railway dashboard, "New Project" → "Deploy from GitHub repo" → pick this repo.
+   Railway detects the `Dockerfile` and builds from it automatically.
+2. Add a volume: service **Settings → Volumes → New Volume**, mount path `/app/backend/data`.
+3. Add an environment variable: `ANTHROPIC_API_KEY` = your key (**Variables** tab).
+4. Railway assigns a public `*.up.railway.app` URL automatically (**Settings → Networking →
+   Generate Domain**) — open that on your phone.
+
+### Option C: Render
+
+1. **New → Web Service**, connect this repo, runtime = **Docker** (it picks up the
+   `Dockerfile`).
+2. Under **Disks**, add a persistent disk mounted at `/app/backend/data`. Note: this requires
+   a paid instance type — Render's free web services don't support persistent disks, so your
+   data would be wiped on every restart on the free tier.
+3. Under **Environment**, add `ANTHROPIC_API_KEY`.
+4. Render gives you a `*.onrender.com` URL once it deploys.
+
+### Option D: Fly.io
+
+More CLI-driven, but cheap for a single low-traffic personal app:
+
+```bash
+fly launch --no-deploy        # detects the Dockerfile, creates fly.toml
+fly volumes create fitness_data --size 1   # 1GB is plenty for personal use
+```
+
+In the generated `fly.toml`, add a `[mounts]` section pointing that volume at
+`/app/backend/data`, then:
+
+```bash
+fly secrets set ANTHROPIC_API_KEY=sk-ant-...
+fly deploy
+```
+
+Fly gives you a `*.fly.dev` URL.
+
 ## Using it
 
 - **Food** — snap/upload a photo of a meal to get a Claude-generated nutrition estimate
